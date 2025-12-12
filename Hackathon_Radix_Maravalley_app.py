@@ -1,11 +1,15 @@
-# Hackathon_Radix_Maravalley_app_no_sklearn.py
 import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from sklearn.ensemble import RandomForestClassifier, IsolationForest
+from sklearn.linear_model import LinearRegression
 
-st.set_page_config(page_title="Hackathon Energia • VTS (sem sklearn)", layout="wide")
+st.set_page_config(page_title="Hackathon Energia • VTS", layout="wide")
 
+# =====================================
+#           MENU
+# =====================================
 st.sidebar.title("⚡ Hackathon — Soluções para Energia")
 menu = st.sidebar.selectbox(
     "Selecione uma solução:",
@@ -16,62 +20,113 @@ menu = st.sidebar.selectbox(
     ]
 )
 
-# Simples detector de anomalias baseado em z-score (sem sklearn)
-def simple_anomaly_score(value, window_mean, window_std):
-    if window_std == 0:
-        return 0.0
-    return abs((value - window_mean) / window_std)
-
+# =====================================
+#   1) MONITORAMENTO DE FRAUDES
+# =====================================
 if menu == "📉 Monitoramento de Perdas e Fraudes":
-    st.title("📉 Monitoramento Inteligente de Perdas e Fraudes (Sem sklearn)")
-    st.write("Exemplo sem dependência de scikit-learn. Upload CSV com colunas: id,timestamp,consumption")
+    st.title("📉 Monitoramento Inteligente de Perdas e Fraudes")
+    st.write("Detecção automática de anomalias via Isolation Forest (sklearn).")
 
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+    file = st.file_uploader("Upload CSV com consumo", type=["csv"])
+
+    if file:
+        df = pd.read_csv(file)
+        st.write("Pré-visualização:")
         st.dataframe(df.head())
-        # assumimos coluna 'consumption'
-        if 'consumption' not in df.columns:
-            st.error("CSV precisa ter coluna 'consumption'")
+
+        if "consumption" not in df.columns:
+            st.error("Arquivo precisa conter a coluna 'consumption'")
         else:
-            # calcula z-score simples por janela
-            df['mean7'] = df['consumption'].rolling(7, min_periods=1).mean()
-            df['std7'] = df['consumption'].rolling(7, min_periods=1).std().fillna(0)
-            df['anom_score'] = df.apply(lambda r: simple_anomaly_score(r['consumption'], r['mean7'], r['std7']), axis=1)
-            # marca como anomalia se score > threshold (ex: 3)
-            threshold = st.slider("Threshold z-score para considerar anomalia", 1.5, 6.0, 3.0)
-            df['is_anomaly'] = df['anom_score'] > threshold
-            st.metric("Total de anomalias", int(df['is_anomaly'].sum()))
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(y=df['consumption'], mode='lines', name='consumption'))
-            fig.add_trace(go.Scatter(y=df.loc[df['is_anomaly'],'consumption'], mode='markers', name='anomaly'))
-            st.plotly_chart(fig, use_container_width=True)
-            st.download_button("Baixar resultados CSV", df.to_csv(index=False).encode('utf-8'), file_name='anomaly_results.csv')
+            cont = st.slider("Nível de sensibilidade do detector", 0.001, 0.2, 0.05)
 
+            if st.button("Detectar Fraudes"):
+                model = IsolationForest(contamination=cont, random_state=42)
+                df["anomaly"] = model.fit_predict(df[["consumption"]])
+                df["anomaly"] = df["anomaly"].apply(lambda x: 1 if x == -1 else 0)
+
+                st.metric("Total de anomalias detectadas", int(df["anomaly"].sum()))
+
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    y=df["consumption"],
+                    mode="lines",
+                    name="Consumo"
+                ))
+                fig.add_trace(go.Scatter(
+                    y=df.loc[df["anomaly"] == 1, "consumption"],
+                    mode="markers",
+                    name="Anomalias"
+                ))
+                st.plotly_chart(fig, use_container_width=True)
+
+                st.download_button(
+                    "Baixar resultados",
+                    df.to_csv(index=False).encode("utf-8"),
+                    "resultados_fraudes.csv"
+                )
+
+
+# =====================================
+#   2) PREVISÃO DE GERAÇÃO SOLAR
+# =====================================
 elif menu == "🔆 Previsão de Geração Solar":
-    st.title("🔆 Previsão de Geração Solar (Regressão simples)")
-    irradiancia = st.slider("Irradiância (W/m²)", 0, 1200, 800)
-    temperatura = st.slider("Temperatura (°C)", -10, 80, 35)
-    # regressão linear analítica (sem sklearn): potência = a*irr + b*temp + c
-    # usamos parâmetros fictícios
-    a = 0.2
-    b = -0.3
-    c = 50
-    power = a * irradiancia + b * temperatura + c
-    power = max(power, 0)
-    st.metric("Geração estimada (kW)", f"{power:.2f}")
-    fig = go.Figure(go.Bar(x=["Geração"], y=[power]))
-    st.plotly_chart(fig, use_container_width=True)
+    st.title("🔆 Previsão Inteligente de Geração Solar")
+    st.write("Modelo simples baseado em regressão linear.")
 
+    file = st.file_uploader("Upload CSV com irradiância/temperatura", type=["csv"])
+
+    if file:
+        df = pd.read_csv(file)
+        st.write(df.head())
+
+        if {"irradiance", "temperature", "power"}.issubset(df.columns):
+            if st.button("Treinar Modelo"):
+                X = df[["irradiance", "temperature"]]
+                y = df["power"]
+
+                model = LinearRegression()
+                model.fit(X, y)
+
+                st.success("Modelo treinado!")
+
+                irr = st.slider("Irradiância (W/m²)", 0, 1200, 800)
+                temp = st.slider("Temperatura (°C)", -10, 80, 35)
+
+                pred = model.predict([[irr, temp]])[0]
+
+                st.metric("Geração Estimada (kW)", f"{pred:.2f}")
+
+                fig = go.Figure(go.Indicator(
+                    mode="number+gauge",
+                    value=pred,
+                    title={"text": "Potência"},
+                    gauge={"axis": {"range": [0, max(1000, pred*1.5)]}}
+                ))
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("O CSV deve conter: irradiance, temperature, power")
+
+
+# =====================================
+#         3) DIGITAL TWIN
+# =====================================
 elif menu == "🏭 Digital Twin de Subestação / Solar":
-    st.title("🏭 Digital Twin Simplificado (sem sklearn)")
+    st.title("🏭 Digital Twin da Subestação / Usina Solar")
+
     tensao = st.slider("Tensão (kV)", 10, 500, 69)
     corrente = st.slider("Corrente (A)", 0, 3000, 450)
     temperatura = st.slider("Temperatura (°C)", -10, 120, 45)
+
     potencia = (tensao * 1000 * corrente) / (np.sqrt(3) * 1000)
+
     st.metric("Potência Aparente (MVA)", f"{potencia/1e6:.3f}")
-    fig = go.Figure()
-    fig.add_trace(go.Indicator(mode="number+gauge", value=temperatura, title={"text":"Temperatura"}, gauge={"axis":{"range":[-10,120]}}))
+
+    fig = go.Figure(go.Indicator(
+        mode="number+gauge",
+        value=temperatura,
+        title={"text": "Temperatura"},
+        gauge={"axis": {"range": [-10, 120]}}
+    ))
     st.plotly_chart(fig, use_container_width=True)
 
 
