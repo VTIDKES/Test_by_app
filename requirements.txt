@@ -7,3 +7,5 @@ plotly
 numpy
 scikit-learn
 geopandas
+requests
+json
