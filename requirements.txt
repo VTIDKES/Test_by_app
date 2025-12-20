@@ -1,6 +1,6 @@
 streamlit
-pandas
-numpy
+pandas==2.0.3
+numpy<2.0.0
 geopandas
 shapely
 plotly
@@ -8,7 +8,4 @@ pandapower
 scikit-learn
 requests
 rtree
-libgdal-dev
-gdal-bin
-libspatialindex-dev
-python3-rtree
+
