@@ -1,11 +1,10 @@
 streamlit
-pandapower
 pandas
 numpy
-matplotlib
-plotly
-numpy
-scikit-learn
 geopandas
+shapely
+plotly
+pandapower
+scikit-learn
 requests
-json
+rtree
