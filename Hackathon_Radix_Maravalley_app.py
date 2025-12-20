@@ -44,7 +44,7 @@ def carregar_dados_usinas():
     url = "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search"
     
     # Limite de registros (ajuste conforme necessário, o RN tem muitos registros)
-    limit = 10000 
+    limit = 1000
     
     params = {
         "resource_id": resource_id,
@@ -368,3 +368,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
