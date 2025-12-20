@@ -437,6 +437,143 @@ def main():
             )
         
         with col3:
+            municipios_selecionados = st.multiselect(
+                "Município:",
+                options=gdf_usinas['municipio'].unique(),
+                default=gdf_usinas['municipio'].unique()
+            )
+        
+        # Filtrar dados
+        gdf_filtrado = gdf_usinas[
+            (gdf_usinas['tipo'].isin(tipos_selecionados)) &
+            (gdf_usinas['classe'].isin(classes_selecionadas)) &
+            (gdf_usinas['municipio'].isin(municipios_selecionados))
+        ]
+        
+        # Exibir estatísticas filtradas
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Usinas Filtradas", len(gdf_filtrado))
+        
+        with col2:
+            st.metric("Potência Total", f"{gdf_filtrado['potencia_kw'].sum()/1000:.2f} MW")
+        
+        with col3:
+            st.metric("Potência Média", f"{gdf_filtrado['potencia_kw'].mean():.0f} kW")
+        
+        with col4:
+            st.metric("Potência Máxima", f"{gdf_filtrado['potencia_kw'].max()} kW")
+        
+        st.markdown("---")
+        
+        # Mapa interativo
+        if len(gdf_filtrado) > 0:
+            st.plotly_chart(criar_mapa_usinas(gdf_filtrado), use_container_width=True)
+        else:
+            st.warning("Nenhuma usina encontrada com os filtros selecionados.")
+        
+        # Tabela de usinas
+        st.markdown("### 📋 Lista de Usinas")
+        
+        df_tabela = gdf_filtrado[['id', 'potencia_kw', 'tipo', 'classe', 'municipio', 'data_instalacao']].copy()
+        df_tabela['data_instalacao'] = df_tabela['data_instalacao'].dt.strftime('%d/%m/%Y')
+        
+        st.dataframe(
+            df_tabela,
+            hide_index=True,
+            use_container_width=True
+        )
+    
+    # ========================================================================
+    # ABA: MACHINE LEARNING
+    # ========================================================================
+    elif aba == "🤖 Machine Learning":
+        st.header("🤖 Previsão de Geração com Machine Learning")
+        
+        # Treinar modelo
+        with st.spinner("Treinando modelo Random Forest..."):
+            model, mae, r2, clima_previsto = treinar_modelo_previsao(clima)
+        
+        # Métricas do modelo
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Algoritmo", "Random Forest")
+        
+        with col2:
+            st.metric("MAE (kW)", f"{mae:.2f}")
+        
+        with col3:
+            st.metric("R² Score", f"{r2:.4f}")
+        
+        with col4:
+            n_risco = clima_previsto['risco_sobretensao'].sum()
+            st.metric("Horas em Risco", n_risco)
+        
+        st.markdown("---")
+        
+        # Gráfico de previsão
+        st.plotly_chart(criar_grafico_previsao(clima_previsto), use_container_width=True)
+        
+        # Dados climáticos
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig_irrad = px.line(
+                clima_previsto,
+                x='hora',
+                y='irradiancia',
+                title='Irradiância Solar ao Longo do Dia',
+                labels={'irradiancia': 'Irradiância (W/m²)', 'hora': 'Hora do Dia'}
+            )
+            st.plotly_chart(fig_irrad, use_container_width=True)
+        
+        with col2:
+            fig_temp = px.line(
+                clima_previsto,
+                x='hora',
+                y='temperatura',
+                title='Temperatura ao Longo do Dia',
+                labels={'temperatura': 'Temperatura (°C)', 'hora': 'Hora do Dia'},
+                line_shape='spline'
+            )
+            st.plotly_chart(fig_temp, use_container_width=True)
+        
+        # Tabela de dados
+        st.markdown("### 📊 Dados Climáticos e Previsões")
+        
+        df_display_ml = clima_previsto.copy()
+        df_display_ml['risco'] = df_display_ml['risco_sobretensao'].apply(
+            lambda x: '⚠️ Alto Risco' if x else '✅ Normal'
+        )
+        
+        st.dataframe(
+            df_display_ml[['hora', 'irradiancia', 'temperatura', 'geracao_kw', 'geracao_prevista', 'risco']],
+            hide_index=True,
+            use_container_width=True
+        )
+        
+        # Feature Importance
+        st.markdown("### 🎯 Importância das Features")
+        
+        feature_importance = pd.DataFrame({
+            'Feature': ['hora', 'irradiancia', 'temperatura'],
+            'Importância': model.feature_importances_
+        }).sort_values('Importância', ascending=False)
+        
+        fig_importance = px.bar(
+            feature_importance,
+            x='Importância',
+            y='Feature',
+            orientation='h',
+            title='Importância das Variáveis no Modelo'
+        )
+        
+        st.plotly_chart(fig_importance, use_container_width=True)
+
+if __name__ == "__main__":
+    main():
             st.metric(
                 "Perdas Técnicas", 
                 f"{indicadores['perdas_totais_mw']:.3f} MW",
@@ -589,6 +726,16 @@ def main():
                 "Tipo de Fonte:",
                 options=gdf_usinas['tipo'].unique(),
                 default=gdf_usinas['tipo'].unique()
+            )
+        
+        with col2:
+            classes_selecionadas = st.multiselect(
+                "Classe de Consumo:",
+                options=gdf_usinas['classe'].unique(),
+                default=gdf_usinas['classe'].unique()
+            )
+        
+        with col3
 
 
 
