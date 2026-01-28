@@ -1,7 +1,9 @@
-streamlit
 pandas
 numpy
+streamlit
 plotly
 scikit-learn
-requests
-
+sqlite3
+openpyxl
+pyarrow
+python-dotenv
